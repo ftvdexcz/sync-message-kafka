@@ -50,9 +50,8 @@ public class MessageService {
                     .map(partitionInfo -> new TopicPartition(topic, partitionInfo.partition()))
                     .toList();
             var latestOffsets = consumer.endOffsets(partitions);
-
+            consumer.assign(partitions);
             partitions.forEach(partition -> {
-                consumer.assign(Collections.singleton(partition));
                 consumer.seek(partition, 0);
                 long currentOffset = -1;
                 long latestOffset = Math.max(0, latestOffsets.get(partition) - 1);
