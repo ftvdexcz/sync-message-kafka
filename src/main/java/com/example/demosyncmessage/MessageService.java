@@ -5,28 +5,22 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.SaslConfigs;
-import org.apache.kafka.common.internals.Topic;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -34,7 +28,7 @@ public class MessageService {
     @Value("${spring.kafka.properties.sasl.jaas.config}")
     String sjc;
 
-    public List<MessageDto> syncMessages(){
+    public List<MessageDto> syncMessages() {
         Properties properties = new Properties();
         properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "10.168.10.23:30861,10.168.10.21:31161,10.168.10.15:30933");
         properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
@@ -45,10 +39,10 @@ public class MessageService {
         properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 2);
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
         properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID().toString());
+        properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID());
         properties.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
 
-        try(KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)){
+        try (KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)) {
             String topic = "test-3";
             List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
             var rawRecords = new ArrayList<ConsumerRecord<byte[], byte[]>>();
@@ -81,13 +75,13 @@ public class MessageService {
                             .timestamp(rec.timestamp())
                             .build())
                     .toList();
-        }catch (Exception ex){
+        } catch (Exception ex) {
             ex.printStackTrace();
             throw new RuntimeException("err");
         }
     }
 
-    public Flux<MessageDto> syncMessagesFlux(){
+    public Flux<MessageDto> syncMessagesFlux() {
         return Flux.create(fluxSink -> {
             Properties properties = new Properties();
             properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "10.168.10.23:30861,10.168.10.21:31161,10.168.10.15:30933");
@@ -99,10 +93,10 @@ public class MessageService {
             properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 2);
             properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
             properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID().toString());
+            properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID());
             properties.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
 
-            try(KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)){
+            try (KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)) {
                 String topic = "test-3";
                 List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
                 var rawRecords = new ArrayList<ConsumerRecord<byte[], byte[]>>();
@@ -112,7 +106,7 @@ public class MessageService {
                         .toList();
                 var latestOffsets = consumer.endOffsets(partitions);
                 consumer.assign(partitions);
-                for(var partition: partitions){
+                for (var partition : partitions) {
                     consumer.seek(partition, 0);
                     long currentOffset = 0;
                     long latestOffset = latestOffsets.get(partition);
@@ -121,7 +115,7 @@ public class MessageService {
                         var polled = consumer.poll(Duration.ofMillis(100)).records(partition);
                         if (!polled.isEmpty()) {
                             currentOffset = polled.get(polled.size() - 1).offset() + 1;
-                            for(var rec: polled){
+                            for (var rec : polled) {
                                 fluxSink.next(MessageDto.builder()
                                         .partition(rec.partition())
                                         .offset(rec.offset())
@@ -134,7 +128,7 @@ public class MessageService {
                     }
                 }
                 fluxSink.complete();
-            }catch (Exception ex){
+            } catch (Exception ex) {
 //                ex.printStackTrace();
                 fluxSink.error(ex);
             }
@@ -150,9 +144,9 @@ public class MessageService {
 //                        .build());
     }
 
-    public ResponseBodyEmitter syncMessagesSseEmitter(){
-//        SseEmitter emitter = new SseEmitter(0L);
-        ResponseBodyEmitter emitter = new ResponseBodyEmitter(0L);
+    public SseEmitter syncMessagesSseEmitter() {
+        SseEmitter emitter = new SseEmitter(0L);
+//        ResponseBodyEmitter emitter = new ResponseBodyEmitter(0L);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             Properties properties = new Properties();
@@ -165,10 +159,10 @@ public class MessageService {
             properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 2);
             properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
             properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-            properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID().toString());
+            properties.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafdrop-consumer-" + UUID.randomUUID());
             properties.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG, "read_committed");
 
-            try(KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)){
+            try (KafkaConsumer<byte[], byte[]> consumer = new KafkaConsumer<>(properties)) {
                 String topic = "test-3";
                 List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
                 var rawRecords = new ArrayList<ConsumerRecord<byte[], byte[]>>();
@@ -178,7 +172,7 @@ public class MessageService {
                         .toList();
                 var latestOffsets = consumer.endOffsets(partitions);
                 consumer.assign(partitions);
-                for(var partition: partitions){
+                for (var partition : partitions) {
                     consumer.seek(partition, 0);
                     long currentOffset = 0;
                     long latestOffset = latestOffsets.get(partition);
@@ -186,20 +180,27 @@ public class MessageService {
                         var polled = consumer.poll(Duration.ofMillis(100)).records(partition);
                         if (!polled.isEmpty()) {
                             currentOffset = polled.get(polled.size() - 1).offset() + 1;
-                            for(var rec: polled){
+                            for (var rec : polled) {
                                 var msgDto = MessageDto.builder()
-                                    .partition(rec.partition())
-                                    .offset(rec.offset())
-                                    .key(new String(rec.key(), StandardCharsets.UTF_8))
-                                    .value(new String(rec.value(), StandardCharsets.UTF_8))
-                                    .timestamp(rec.timestamp())
-                                    .build();
-                                emitter.send(msgDto);
+                                        .partition(rec.partition())
+                                        .offset(rec.offset())
+                                        .key(new String(rec.key(), StandardCharsets.UTF_8))
+                                        .value(new String(rec.value(), StandardCharsets.UTF_8))
+                                        .data("abc")
+                                        .timestamp(rec.timestamp())
+                                        .build();
+                                emitter.send(
+                                        SseEmitter.event()
+                                                .id(String.valueOf(new Date().getTime()))
+                                                .name("message")
+                                                .data(msgDto, MediaType.APPLICATION_JSON)
+                                                .build()
+                                );
                             }
                         }
                     }
                 }
-            }catch(Exception e) {
+            } catch (Exception e) {
                 log.info("Emitter shut down by Exception: {}", e.getMessage());
                 emitter.completeWithError(e);
             } finally {

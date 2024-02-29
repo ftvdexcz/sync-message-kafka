@@ -29,8 +29,8 @@ public class MessageController {
         return messageService.syncMessagesFlux();
     }
 
-    @GetMapping("/sync-sse-emitter")
-    public ResponseBodyEmitter syncMessagesSseEmitter(){
+    @GetMapping(value = "/sync-sse-emitter")
+    public SseEmitter syncMessagesSseEmitter(){
         return messageService.syncMessagesSseEmitter();
     }
 }

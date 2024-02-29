@@ -5,8 +5,10 @@ import lombok.Data;
 
 @Data
 @Builder
-public class EventSourceResDto<T> {
+public class EventSourceResDto{
     private int id;
-    private int count;
-    private T data;
+    private String type;
+    private String data;
+
+
 }

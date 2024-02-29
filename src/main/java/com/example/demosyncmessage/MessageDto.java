@@ -12,4 +12,5 @@ public class MessageDto {
     private long timestamp;
     private int partition;
     private long offset;
+    private String data;
 }
